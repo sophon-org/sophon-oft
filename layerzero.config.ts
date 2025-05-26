@@ -17,31 +17,51 @@ import type { OAppOmniGraphHardhat, OmniPointHardhat } from '@layerzerolabs/tool
  *         },
  *     },
  */
-const sepoliaContract: OmniPointHardhat = {
-    eid: EndpointId.SEPOLIA_V2_TESTNET,
-    contractName: 'MyOFTAdapter',
+const sophonContract: OmniPointHardhat = {
+    eid: EndpointId.SOPHON_V2_MAINNET,
+    contractName: 'SophonTokenOFTAdapter',
+    address: '0x70ff61C1436d19090321A312b1f4be89D62ac55C',
 }
 
-const fujiContract: OmniPointHardhat = {
-    eid: EndpointId.AVALANCHE_V2_TESTNET,
+const bscContract: OmniPointHardhat = {
+    eid: EndpointId.BSC_V2_MAINNET,
+    contractName: 'SophonTokenOFT',
+    address: '0xb19e0b157F94E111e9B5d532B57ba72041e09710',
+}
+
+const baseContract: OmniPointHardhat = {
+    eid: EndpointId.BASE_V2_MAINNET,
     contractName: 'SophonTokenOFT',
 }
 
-const amoyContract: OmniPointHardhat = {
-    eid: EndpointId.AMOY_V2_TESTNET,
+const polygonContract: OmniPointHardhat = {
+    eid: EndpointId.POLYGON_V2_MAINNET,
     contractName: 'SophonTokenOFT',
 }
+
+const arbitrumContract: OmniPointHardhat = {
+    eid: EndpointId.ARBITRUM_V2_MAINNET,
+    contractName: 'SophonTokenOFT',
+}
+
+
 
 const config: OAppOmniGraphHardhat = {
     contracts: [
         {
-            contract: fujiContract,
+            contract: sophonContract,
         },
         {
-            contract: sepoliaContract,
+            contract: bscContract,
         },
         {
-            contract: amoyContract,
+            contract: baseContract,
+        },
+        {
+            contract: polygonContract,
+        },
+        {
+            contract: arbitrumContract,
         },
     ],
     connections: [

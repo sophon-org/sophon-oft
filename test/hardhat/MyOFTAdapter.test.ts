@@ -5,12 +5,12 @@ import { deployments, ethers } from 'hardhat'
 
 import { Options } from '@layerzerolabs/lz-v2-utilities'
 
-describe('MyOFTAdapter Test', function () {
+describe('SophonTokenOFTAdapter Test', function () {
     // Constant representing a mock Endpoint ID for testing purposes
     const eidA = 1
     const eidB = 2
     // Declaration of variables to be used in the test suite
-    let MyOFTAdapter: ContractFactory
+    let SophonTokenOFTAdapter: ContractFactory
     let SophonTokenOFT: ContractFactory
     let ERC20Mock: ContractFactory
     let EndpointV2Mock: ContractFactory
@@ -18,7 +18,7 @@ describe('MyOFTAdapter Test', function () {
     let ownerB: SignerWithAddress
     let endpointOwner: SignerWithAddress
     let token: Contract
-    let myOFTAdapter: Contract
+    let SophonTokenOFTAdapter: Contract
     let myOFTB: Contract
     let mockEndpointV2A: Contract
     let mockEndpointV2B: Contract
@@ -28,7 +28,7 @@ describe('MyOFTAdapter Test', function () {
         // Contract factory for our tested contract
         //
         // We are using a derived contract that exposes a mint() function for testing purposes
-        MyOFTAdapter = await ethers.getContractFactory('MyOFTAdapterMock')
+        SophonTokenOFTAdapter = await ethers.getContractFactory('MyOFTAdapterMock')
 
         SophonTokenOFT = await ethers.getContractFactory('MyOFTMock')
 
@@ -59,16 +59,16 @@ describe('MyOFTAdapter Test', function () {
         token = await ERC20Mock.deploy('Token', 'TOKEN')
 
         // Deploying two instances of SophonTokenOFT contract with different identifiers and linking them to the mock LZEndpoint
-        myOFTAdapter = await MyOFTAdapter.deploy(token.address, mockEndpointV2A.address, ownerA.address)
+        SophonTokenOFTAdapter = await SophonTokenOFTAdapter.deploy(token.address, mockEndpointV2A.address, ownerA.address)
         myOFTB = await SophonTokenOFT.deploy('bOFT', 'bOFT', mockEndpointV2B.address, ownerB.address)
 
         // Setting destination endpoints in the LZEndpoint mock for each SophonTokenOFT instance
         await mockEndpointV2A.setDestLzEndpoint(myOFTB.address, mockEndpointV2B.address)
-        await mockEndpointV2B.setDestLzEndpoint(myOFTAdapter.address, mockEndpointV2A.address)
+        await mockEndpointV2B.setDestLzEndpoint(SophonTokenOFTAdapter.address, mockEndpointV2A.address)
 
         // Setting each SophonTokenOFT instance as a peer of the other in the mock LZEndpoint
-        await myOFTAdapter.connect(ownerA).setPeer(eidB, ethers.utils.zeroPad(myOFTB.address, 32))
-        await myOFTB.connect(ownerB).setPeer(eidA, ethers.utils.zeroPad(myOFTAdapter.address, 32))
+        await SophonTokenOFTAdapter.connect(ownerA).setPeer(eidB, ethers.utils.zeroPad(myOFTB.address, 32))
+        await myOFTB.connect(ownerB).setPeer(eidA, ethers.utils.zeroPad(SophonTokenOFTAdapter.address, 32))
     })
 
     // A test case to verify token transfer functionality
@@ -94,17 +94,17 @@ describe('MyOFTAdapter Test', function () {
         ]
 
         // Fetching the native fee for the token send operation
-        const [nativeFee] = await myOFTAdapter.quoteSend(sendParam, false)
+        const [nativeFee] = await SophonTokenOFTAdapter.quoteSend(sendParam, false)
 
         // Approving the native fee to be spent by the myOFTA contract
-        await token.connect(ownerA).approve(myOFTAdapter.address, tokensToSend)
+        await token.connect(ownerA).approve(SophonTokenOFTAdapter.address, tokensToSend)
 
         // Executing the send operation from myOFTA contract
-        await myOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })
+        await SophonTokenOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })
 
         // Fetching the final token balances of ownerA and ownerB
         const finalBalanceA = await token.balanceOf(ownerA.address)
-        const finalBalanceAdapter = await token.balanceOf(myOFTAdapter.address)
+        const finalBalanceAdapter = await token.balanceOf(SophonTokenOFTAdapter.address)
         const finalBalanceB = await myOFTB.balanceOf(ownerB.address)
 
         // Asserting that the final balances are as expected after the send operation
