@@ -1,6 +1,7 @@
 import { EndpointId } from '@layerzerolabs/lz-definitions'
-
-import type { OAppOmniGraphHardhat, OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
+import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities'
+import { OAppEdgeConfig, OAppEnforcedOption, OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
+import { generateConnectionsConfig } from '@layerzerolabs/metadata-tools'
 
 /**
  *  WARNING: ONLY 1 OFTAdapter should exist for a given global mesh.
@@ -20,13 +21,11 @@ import type { OAppOmniGraphHardhat, OmniPointHardhat } from '@layerzerolabs/tool
 const sophonContract: OmniPointHardhat = {
     eid: EndpointId.SOPHON_V2_MAINNET,
     contractName: 'SophonTokenOFTAdapter',
-    address: '0x70ff61C1436d19090321A312b1f4be89D62ac55C',
 }
 
 const bscContract: OmniPointHardhat = {
     eid: EndpointId.BSC_V2_MAINNET,
     contractName: 'SophonTokenOFT',
-    address: '0xb19e0b157F94E111e9B5d532B57ba72041e09710',
 }
 
 const baseContract: OmniPointHardhat = {
@@ -44,52 +43,100 @@ const arbitrumContract: OmniPointHardhat = {
     contractName: 'SophonTokenOFT',
 }
 
+// Standard enforced options for mainnet chains
+const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+    {
+        msgType: 1,
+        optionType: ExecutorOptionType.LZ_RECEIVE,
+        gas: 100000,
+        value: 0,
+    },
+]
 
-
-const config: OAppOmniGraphHardhat = {
-    contracts: [
-        {
-            contract: sophonContract,
-        },
-        {
-            contract: bscContract,
-        },
-        {
-            contract: baseContract,
-        },
-        {
-            contract: polygonContract,
-        },
-        {
-            contract: arbitrumContract,
-        },
-    ],
-    connections: [
-        {
-            from: fujiContract,
-            to: sepoliaContract,
-        },
-        {
-            from: fujiContract,
-            to: amoyContract,
-        },
-        {
-            from: sepoliaContract,
-            to: fujiContract,
-        },
-        {
-            from: sepoliaContract,
-            to: amoyContract,
-        },
-        {
-            from: amoyContract,
-            to: sepoliaContract,
-        },
-        {
-            from: amoyContract,
-            to: fujiContract,
-        },
-    ],
+export default async function () {
+    // note: pathways declared here are automatically bidirectional
+    // if you declare A,B there's no need to declare B,A
+    const connections = await generateConnectionsConfig([
+        [
+            sophonContract, // Chain A contract
+            bscContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 20], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            sophonContract, // Chain A contract
+            baseContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 10], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            sophonContract, // Chain A contract
+            polygonContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 512], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            sophonContract, // Chain A contract
+            arbitrumContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 20], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            bscContract, // Chain A contract
+            baseContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 10], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            bscContract, // Chain A contract
+            polygonContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 512], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            bscContract, // Chain A contract
+            arbitrumContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [20, 20], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            baseContract, // Chain A contract
+            polygonContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [10, 512], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            baseContract, // Chain A contract
+            arbitrumContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [10, 20], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            polygonContract, // Chain A contract
+            arbitrumContract, // Chain B contract
+            [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [512, 20], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+    ])
+    
+    return {
+        contracts: [
+            { contract: sophonContract },
+            { contract: bscContract },
+            { contract: baseContract },
+            { contract: polygonContract },
+            { contract: arbitrumContract },
+        ],
+        connections,
+    }
 }
-
-export default config
