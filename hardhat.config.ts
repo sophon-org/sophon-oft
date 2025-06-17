@@ -85,6 +85,11 @@ const config: HardhatUserConfig = {
             },
             accounts,
         },
+        'beam':{
+            eid: EndpointId.MERITCIRCLE_V2_MAINNET,
+            url: process.env.RPC_URL_BEAM || 'https://build.onbeam.com/rpc',
+            accounts,
+        },
         // 'sepolia-testnet': {
         //     eid: EndpointId.SEPOLIA_V2_TESTNET,
         //     url: process.env.RPC_URL_SEPOLIA || 'https://rpc.sepolia.org/',

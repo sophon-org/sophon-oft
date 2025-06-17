@@ -18,6 +18,15 @@ import { generateConnectionsConfig } from '@layerzerolabs/metadata-tools'
  *         },
  *     },
  */
+
+// Network confirmation constants
+const SOPHON_CONFIRMATIONS = 20
+const BSC_CONFIRMATIONS = 20
+const BASE_CONFIRMATIONS = 10
+const POLYGON_CONFIRMATIONS = 512
+const ARBITRUM_CONFIRMATIONS = 20
+const BEAM_CONFIRMATIONS = 20
+
 const sophonContract: OmniPointHardhat = {
     eid: EndpointId.SOPHON_V2_MAINNET,
     contractName: 'SophonTokenOFTAdapter',
@@ -43,6 +52,11 @@ const arbitrumContract: OmniPointHardhat = {
     contractName: 'SophonTokenOFT',
 }
 
+const beamContract: OmniPointHardhat = {
+    eid: EndpointId.MERITCIRCLE_V2_MAINNET,
+    contractName: 'SophonTokenOFT',
+}
+
 // Standard enforced options for mainnet chains
 const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
     {
@@ -61,70 +75,105 @@ export default async function () {
             sophonContract, // Chain A contract
             bscContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 20], // [A to B confirmations, B to A confirmations]
+            [SOPHON_CONFIRMATIONS, BSC_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             sophonContract, // Chain A contract
             baseContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 10], // [A to B confirmations, B to A confirmations]
+            [SOPHON_CONFIRMATIONS, BASE_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             sophonContract, // Chain A contract
             polygonContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 512], // [A to B confirmations, B to A confirmations]
+            [SOPHON_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             sophonContract, // Chain A contract
             arbitrumContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 20], // [A to B confirmations, B to A confirmations]
+            [SOPHON_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            sophonContract, // Chain A contract
+            beamContract, // Chain B contract
+            [['LayerZero Labs'], [['Canary', 'Horizen'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [SOPHON_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             bscContract, // Chain A contract
             baseContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 10], // [A to B confirmations, B to A confirmations]
+            [BSC_CONFIRMATIONS, BASE_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             bscContract, // Chain A contract
             polygonContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 512], // [A to B confirmations, B to A confirmations]
+            [BSC_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             bscContract, // Chain A contract
             arbitrumContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [20, 20], // [A to B confirmations, B to A confirmations]
+            [BSC_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            bscContract, // Chain A contract
+            beamContract, // Chain B contract
+            [['LayerZero Labs'], [['Canary', 'Horizen'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [BSC_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             baseContract, // Chain A contract
             polygonContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [10, 512], // [A to B confirmations, B to A confirmations]
+            [BASE_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             baseContract, // Chain A contract
             arbitrumContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [10, 20], // [A to B confirmations, B to A confirmations]
+            [BASE_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            baseContract, // Chain A contract
+            beamContract, // Chain B contract
+            [['LayerZero Labs'], [['Canary', 'Horizen'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [BASE_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
         [
             polygonContract, // Chain A contract
             arbitrumContract, // Chain B contract
             [['LayerZero Labs'], [['Stargate', 'Nethermind'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-            [512, 20], // [A to B confirmations, B to A confirmations]
+            [POLYGON_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            polygonContract, // Chain A contract
+            beamContract, // Chain B contract
+            [['LayerZero Labs'], [['Canary', 'Horizen'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [POLYGON_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
+            [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+        ],
+        [
+            arbitrumContract, // Chain A contract
+            beamContract, // Chain B contract
+            [['LayerZero Labs'], [['Canary', 'Horizen'], 1]], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+            [ARBITRUM_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
             [MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
         ],
     ])
@@ -136,6 +185,7 @@ export default async function () {
             { contract: baseContract },
             { contract: polygonContract },
             { contract: arbitrumContract },
+            { contract: beamContract },
         ],
         connections,
     }
