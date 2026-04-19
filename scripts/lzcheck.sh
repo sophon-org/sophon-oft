@@ -38,6 +38,19 @@ RPC="${ETH_RPC_URL:-https://rpc.sophon.xyz}"
 SEL_GET_RECV_LIB="0x402f8468"
 SEL_GET_ULN_CFG="0x43ea4fa9"
 
+# EID -> chain name lookup
+chain_name() {
+  case "$1" in
+    30101) echo "Ethereum" ;;
+    30102) echo "BSC" ;;
+    30109) echo "Polygon" ;;
+    30110) echo "Arbitrum" ;;
+    30184) echo "Base" ;;
+    30198) echo "Beam" ;;
+    *)     echo "EID:$1" ;;
+  esac
+}
+
 CURL_OPTS=(-s --ssl-no-revoke --max-time 10)
 
 # eth_call helper — prints raw hex result or "error"
@@ -101,20 +114,21 @@ echo "OApp / OFTAdapter DVN configuration audit"
 echo "OApp:      $OAPP"
 echo "Endpoint:  $ENDPOINT (EndpointV2, Sophon)"
 echo ""
-printf "  %-6s  %-8s  %-9s  %-44s  %s\n" "EID" "required" "threshold" "recvLib" "verdict"
-printf "  %-6s  %-8s  %-9s  %-44s  %s\n" "------" "--------" "---------" "--------------------------------------------" "--------"
+printf "  %-10s  %-6s  %-8s  %-9s  %-44s  %s\n" "chain" "EID" "required" "threshold" "recvLib" "verdict"
+printf "  %-10s  %-6s  %-8s  %-9s  %-44s  %s\n" "----------" "------" "--------" "---------" "--------------------------------------------" "--------"
 
 EXPOSED_COUNT=0
 
 for EID in "${EIDS[@]}"; do
   EID_PAD=$(pad_uint32 "$EID")
+  CHAIN=$(chain_name "$EID")
 
   # Step 1: resolve the ReceiveUln302 library for this EID
   CALLDATA="${SEL_GET_RECV_LIB}${OAPP_PAD}${EID_PAD}"
   RAW=$(eth_call "$ENDPOINT" "$CALLDATA")
 
   if [ "$RAW" = "error" ] || [ -z "$RAW" ]; then
-    printf "  %-6s  %-8s  %-9s  %-44s  %s\n" "$EID" "?" "?" "" "endpoint error"
+    printf "  %-10s  %-6s  %-8s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "" "endpoint error"
     continue
   fi
 
@@ -125,7 +139,7 @@ for EID in "${EIDS[@]}"; do
   RAW=$(eth_call "$RECV_LIB" "$CALLDATA")
 
   if [ "$RAW" = "error" ] || [ -z "$RAW" ]; then
-    printf "  %-6s  %-8s  %-9s  %-44s  %s\n" "$EID" "?" "?" "$RECV_LIB" "config error"
+    printf "  %-10s  %-6s  %-8s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$RECV_LIB" "config error"
     continue
   fi
 
@@ -145,7 +159,7 @@ for EID in "${EIDS[@]}"; do
     VERDICT="OK"
   fi
 
-  printf "  %-6s  %-8s  %-9s  %-44s  %s\n" "$EID" "$REQ" "$THR" "$RECV_LIB" "$VERDICT"
+  printf "  %-10s  %-6s  %-8s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "$REQ" "$THR" "$RECV_LIB" "$VERDICT"
 done
 
 echo ""
