@@ -176,7 +176,9 @@ echo "            optThresh = on-chain optionalDVNThreshold"
 echo "Source chains: Sophon, BSC, Base, Polygon, Arbitrum, Beam  (Ethereum skipped)"
 
 TOTAL_EXPOSED=0
+TOTAL_OK=0
 TOTAL_PEER_ISSUES=0
+TOTAL_RPC_ERRORS=0
 TOTAL_CHECKED=0
 
 for ROW in "${CHAINS[@]}"; do
@@ -237,8 +239,10 @@ for ROW in "${CHAINS[@]}"; do
     CALLDATA="${SEL_GET_RECV_LIB}${OAPP_PAD}${EID_PAD}"
     RAW=$(eth_call "$SRC_RPC" "$ENDPOINT" "$CALLDATA")
 
-    if [ "$RAW" = "error" ] || [ -z "$RAW" ]; then
+    if [ "$RAW" = "error" ] || [ -z "$RAW" ] || [ "$RAW" = "0x" ]; then
       printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "" "endpoint error"
+      TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
+      TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
       continue
     fi
 
@@ -248,8 +252,10 @@ for ROW in "${CHAINS[@]}"; do
     CALLDATA="${SEL_GET_ULN_CFG}${OAPP_PAD}${EID_PAD}"
     RAW=$(eth_call "$SRC_RPC" "$RECV_LIB" "$CALLDATA")
 
-    if [ "$RAW" = "error" ] || [ -z "$RAW" ]; then
+    if [ "$RAW" = "error" ] || [ -z "$RAW" ] || [ "$RAW" = "0x" ]; then
       printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "$RECV_LIB" "config error"
+      TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
+      TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
       continue
     fi
 
@@ -266,6 +272,7 @@ for ROW in "${CHAINS[@]}"; do
       TOTAL_EXPOSED=$((TOTAL_EXPOSED + 1))
     else
       VERDICT="OK"
+      TOTAL_OK=$((TOTAL_OK + 1))
     fi
     TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
 
@@ -274,20 +281,25 @@ for ROW in "${CHAINS[@]}"; do
 done
 
 echo ""
+echo "  Pathways scanned: $TOTAL_CHECKED   (OK: $TOTAL_OK  EXPOSED: $TOTAL_EXPOSED  RPC errors: $TOTAL_RPC_ERRORS)"
 EXIT_CODE=0
 if [ "$TOTAL_EXPOSED" -gt 0 ]; then
-  echo "  $TOTAL_EXPOSED of $TOTAL_CHECKED pathway(s) EXPOSED — requiredDVNCount < $MIN_REQUIRED_DVNS."
+  echo "  $TOTAL_EXPOSED pathway(s) EXPOSED — requiredDVNCount < $MIN_REQUIRED_DVNS."
   echo "  Reconfigure affected pathways with >=$MIN_REQUIRED_DVNS independent required DVNs."
   EXIT_CODE=1
-else
-  echo "  All $TOTAL_CHECKED checked pathways OK (>=$MIN_REQUIRED_DVNS required DVNs)."
 fi
-
+if [ "$TOTAL_RPC_ERRORS" -gt 0 ]; then
+  echo "  $TOTAL_RPC_ERRORS pathway(s) incomplete due to RPC errors — re-run or set RPC_URL_* to an authenticated endpoint."
+  EXIT_CODE=1
+fi
 if [ "$TOTAL_PEER_ISSUES" -gt 0 ]; then
   echo "  $TOTAL_PEER_ISSUES peer issue(s): MISSING = no route set, MISMATCH = peer differs from expected OFT, ERR = RPC failure."
   EXIT_CODE=1
 else
   echo "  All peer routes OK (every source chain is wired to every other)."
+fi
+if [ "$TOTAL_EXPOSED" -eq 0 ] && [ "$TOTAL_RPC_ERRORS" -eq 0 ]; then
+  echo "  All $TOTAL_CHECKED checked pathways OK (>=$MIN_REQUIRED_DVNS required DVNs)."
 fi
 echo ""
 exit "$EXIT_CODE"
