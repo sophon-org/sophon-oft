@@ -74,23 +74,11 @@ const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
 ]
 
 type DvnConfig = TwoWayConfig[2]
-type DvnConfigOptional = Exclude<DvnConfig[1], []>
 
-type DvnPolicy = {
-	optionalDvns: DvnConfigOptional[0]
-	threshold: DvnConfigOptional[1]
-}
-
-const REQUIRED_DVNS: DvnConfig[0] = ['LayerZero Labs', 'Canary']
-
-const DVN_POLICY: DvnPolicy = {
-	optionalDvns: ['Nethermind', 'Horizen'],
-	threshold: 1,
-}
-
-const dvnConfig = ({ optionalDvns, threshold }: DvnPolicy): DvnConfig => [
-	REQUIRED_DVNS,
-	[optionalDvns, threshold],
+// Shared by every pathway: 2 required DVNs plus 1-of-2 optional DVN quorum.
+const dvnConfig: DvnConfig = [
+	['LayerZero Labs', 'Canary'],
+	[['Nethermind', 'Horizen'], 1],
 ]
 
 export default async function () {
@@ -100,105 +88,105 @@ export default async function () {
 		[
 			sophonContract, // Chain A contract
 			bscContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[SOPHON_CONFIRMATIONS, BSC_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			sophonContract, // Chain A contract
 			baseContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[SOPHON_CONFIRMATIONS, BASE_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			sophonContract, // Chain A contract
 			polygonContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[SOPHON_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			sophonContract, // Chain A contract
 			arbitrumContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[SOPHON_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			sophonContract, // Chain A contract
 			beamContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[SOPHON_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			bscContract, // Chain A contract
 			baseContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BSC_CONFIRMATIONS, BASE_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			bscContract, // Chain A contract
 			polygonContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BSC_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			bscContract, // Chain A contract
 			arbitrumContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BSC_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			bscContract, // Chain A contract
 			beamContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BSC_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			baseContract, // Chain A contract
 			polygonContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BASE_CONFIRMATIONS, POLYGON_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			baseContract, // Chain A contract
 			arbitrumContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BASE_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			baseContract, // Chain A contract
 			beamContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[BASE_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			polygonContract, // Chain A contract
 			arbitrumContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[POLYGON_CONFIRMATIONS, ARBITRUM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			polygonContract, // Chain A contract
 			beamContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[POLYGON_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
 		[
 			arbitrumContract, // Chain A contract
 			beamContract, // Chain B contract
-			dvnConfig(DVN_POLICY), // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+			dvnConfig, // [ requiredDVN[], [ optionalDVN[], threshold ] ]
 			[ARBITRUM_CONFIRMATIONS, BEAM_CONFIRMATIONS], // [A to B confirmations, B to A confirmations]
 			[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
 		],
