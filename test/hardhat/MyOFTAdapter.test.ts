@@ -1,115 +1,112 @@
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import { Options } from '@layerzerolabs/lz-v2-utilities'
+import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
-import { Contract, ContractFactory } from 'ethers'
+import { type Contract, ContractFactory } from 'ethers'
 import { deployments, ethers } from 'hardhat'
 
-import { Options } from '@layerzerolabs/lz-v2-utilities'
+describe('SophonTokenOFTAdapter Test', () => {
+	const eidA = 1
+	const eidB = 2
 
-describe('SophonTokenOFTAdapter Test', function () {
-    // Constant representing a mock Endpoint ID for testing purposes
-    const eidA = 1
-    const eidB = 2
-    // Declaration of variables to be used in the test suite
-    let SophonTokenOFTAdapter: ContractFactory
-    let SophonTokenOFT: ContractFactory
-    let ERC20Mock: ContractFactory
-    let EndpointV2Mock: ContractFactory
-    let ownerA: SignerWithAddress
-    let ownerB: SignerWithAddress
-    let endpointOwner: SignerWithAddress
-    let token: Contract
-    let SophonTokenOFTAdapter: Contract
-    let myOFTB: Contract
-    let mockEndpointV2A: Contract
-    let mockEndpointV2B: Contract
+	let adapterFactory: ContractFactory
+	let oftFactory: ContractFactory
+	let erc20Factory: ContractFactory
+	let endpointFactory: ContractFactory
+	let ownerA: SignerWithAddress
+	let ownerB: SignerWithAddress
+	let endpointOwner: SignerWithAddress
+	let token: Contract
+	let oftAdapter: Contract
+	let oftB: Contract
+	let mockEndpointV2A: Contract
+	let mockEndpointV2B: Contract
 
-    // Before hook for setup that runs once before all tests in the block
-    before(async function () {
-        // Contract factory for our tested contract
-        //
-        // We are using a derived contract that exposes a mint() function for testing purposes
-        SophonTokenOFTAdapter = await ethers.getContractFactory('MyOFTAdapterMock')
+	before(async () => {
+		adapterFactory = await ethers.getContractFactory('MyOFTAdapterMock')
+		oftFactory = await ethers.getContractFactory('MyOFTMock')
+		erc20Factory = await ethers.getContractFactory('MyERC20Mock')
 
-        SophonTokenOFT = await ethers.getContractFactory('MyOFTMock')
+		;[ownerA, ownerB, endpointOwner] = await ethers.getSigners()
 
-        ERC20Mock = await ethers.getContractFactory('MyERC20Mock')
+		const endpointArtifact = await deployments.getArtifact('EndpointV2Mock')
+		endpointFactory = new ContractFactory(
+			endpointArtifact.abi,
+			endpointArtifact.bytecode,
+			endpointOwner,
+		)
+	})
 
-        // Fetching the first three signers (accounts) from Hardhat's local Ethereum network
-        const signers = await ethers.getSigners()
+	beforeEach(async () => {
+		mockEndpointV2A = await endpointFactory.deploy(eidA)
+		mockEndpointV2B = await endpointFactory.deploy(eidB)
 
-        ;[ownerA, ownerB, endpointOwner] = signers
+		token = await erc20Factory.deploy('Token', 'TOKEN')
 
-        // The EndpointV2Mock contract comes from @layerzerolabs/test-devtools-evm-hardhat package
-        // and its artifacts are connected as external artifacts to this project
-        //
-        // Unfortunately, hardhat itself does not yet provide a way of connecting external artifacts,
-        // so we rely on hardhat-deploy to create a ContractFactory for EndpointV2Mock
-        //
-        // See https://github.com/NomicFoundation/hardhat/issues/1040
-        const EndpointV2MockArtifact = await deployments.getArtifact('EndpointV2Mock')
-        EndpointV2Mock = new ContractFactory(EndpointV2MockArtifact.abi, EndpointV2MockArtifact.bytecode, endpointOwner)
-    })
+		oftAdapter = await adapterFactory.deploy(
+			token.address,
+			mockEndpointV2A.address,
+			ownerA.address,
+		)
+		oftB = await oftFactory.deploy(
+			'bOFT',
+			'bOFT',
+			mockEndpointV2B.address,
+			ownerB.address,
+		)
 
-    // beforeEach hook for setup that runs before each test in the block
-    beforeEach(async function () {
-        // Deploying a mock LZEndpoint with the given Endpoint ID
-        mockEndpointV2A = await EndpointV2Mock.deploy(eidA)
-        mockEndpointV2B = await EndpointV2Mock.deploy(eidB)
+		await mockEndpointV2A.setDestLzEndpoint(
+			oftB.address,
+			mockEndpointV2B.address,
+		)
+		await mockEndpointV2B.setDestLzEndpoint(
+			oftAdapter.address,
+			mockEndpointV2A.address,
+		)
 
-        token = await ERC20Mock.deploy('Token', 'TOKEN')
+		await oftAdapter
+			.connect(ownerA)
+			.setPeer(eidB, ethers.utils.hexZeroPad(oftB.address, 32))
+		await oftB
+			.connect(ownerB)
+			.setPeer(eidA, ethers.utils.hexZeroPad(oftAdapter.address, 32))
+	})
 
-        // Deploying two instances of SophonTokenOFT contract with different identifiers and linking them to the mock LZEndpoint
-        SophonTokenOFTAdapter = await SophonTokenOFTAdapter.deploy(token.address, mockEndpointV2A.address, ownerA.address)
-        myOFTB = await SophonTokenOFT.deploy('bOFT', 'bOFT', mockEndpointV2B.address, ownerB.address)
+	it('locks ERC20 collateral and mints OFT on the destination', async () => {
+		const initialAmount = ethers.utils.parseEther('100')
+		const tokensToSend = ethers.utils.parseEther('1')
 
-        // Setting destination endpoints in the LZEndpoint mock for each SophonTokenOFT instance
-        await mockEndpointV2A.setDestLzEndpoint(myOFTB.address, mockEndpointV2B.address)
-        await mockEndpointV2B.setDestLzEndpoint(SophonTokenOFTAdapter.address, mockEndpointV2A.address)
+		await token.mint(ownerA.address, initialAmount)
 
-        // Setting each SophonTokenOFT instance as a peer of the other in the mock LZEndpoint
-        await SophonTokenOFTAdapter.connect(ownerA).setPeer(eidB, ethers.utils.zeroPad(myOFTB.address, 32))
-        await myOFTB.connect(ownerB).setPeer(eidA, ethers.utils.zeroPad(SophonTokenOFTAdapter.address, 32))
-    })
+		const options = Options.newOptions()
+			.addExecutorLzReceiveOption(200000, 0)
+			.toHex()
+			.toString()
 
-    // A test case to verify token transfer functionality
-    it('should send a token from A address to B address via OFTAdapter/OFT', async function () {
-        // Minting an initial amount of tokens to ownerA's address in the myOFTA contract
-        const initialAmount = ethers.utils.parseEther('100')
-        await token.mint(ownerA.address, initialAmount)
+		const sendParam = [
+			eidB,
+			ethers.utils.hexZeroPad(ownerB.address, 32),
+			tokensToSend,
+			tokensToSend,
+			options,
+			'0x',
+			'0x',
+		]
 
-        // Defining the amount of tokens to send and constructing the parameters for the send operation
-        const tokensToSend = ethers.utils.parseEther('1')
+		const [nativeFee] = await oftAdapter.quoteSend(sendParam, false)
 
-        // Defining extra message execution options for the send operation
-        const options = Options.newOptions().addExecutorLzReceiveOption(200000, 0).toHex().toString()
+		await token.connect(ownerA).approve(oftAdapter.address, tokensToSend)
+		await oftAdapter
+			.connect(ownerA)
+			.send(sendParam, [nativeFee, 0], ownerA.address, {
+				value: nativeFee,
+			})
 
-        const sendParam = [
-            eidB,
-            ethers.utils.zeroPad(ownerB.address, 32),
-            tokensToSend,
-            tokensToSend,
-            options,
-            '0x',
-            '0x',
-        ]
+		const finalBalanceA = await token.balanceOf(ownerA.address)
+		const finalBalanceAdapter = await token.balanceOf(oftAdapter.address)
+		const finalBalanceB = await oftB.balanceOf(ownerB.address)
 
-        // Fetching the native fee for the token send operation
-        const [nativeFee] = await SophonTokenOFTAdapter.quoteSend(sendParam, false)
-
-        // Approving the native fee to be spent by the myOFTA contract
-        await token.connect(ownerA).approve(SophonTokenOFTAdapter.address, tokensToSend)
-
-        // Executing the send operation from myOFTA contract
-        await SophonTokenOFTAdapter.send(sendParam, [nativeFee, 0], ownerA.address, { value: nativeFee })
-
-        // Fetching the final token balances of ownerA and ownerB
-        const finalBalanceA = await token.balanceOf(ownerA.address)
-        const finalBalanceAdapter = await token.balanceOf(SophonTokenOFTAdapter.address)
-        const finalBalanceB = await myOFTB.balanceOf(ownerB.address)
-
-        // Asserting that the final balances are as expected after the send operation
-        expect(finalBalanceA).eql(initialAmount.sub(tokensToSend))
-        expect(finalBalanceAdapter).eql(tokensToSend)
-        expect(finalBalanceB).eql(tokensToSend)
-    })
+		expect(finalBalanceA.eq(initialAmount.sub(tokensToSend))).to.equal(true)
+		expect(finalBalanceAdapter.eq(tokensToSend)).to.equal(true)
+		expect(finalBalanceB.eq(tokensToSend)).to.equal(true)
+	})
 })

@@ -31,6 +31,8 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY
 
 const SAFE_API_KEY = process.env.SAFE_API_KEY
 
+const SOPH_ERC20_ETHEREUM = '0x6b7774cb12ed7573a7586e7d0e62a2a563ddd3f0'
+
 const accounts: HttpNetworkAccountsUserConfig | undefined = MNEMONIC
 	? { mnemonic: MNEMONIC }
 	: PRIVATE_KEY
@@ -64,12 +66,26 @@ const config: HardhatUserConfig = {
 		],
 	},
 	networks: {
+		ethereum: {
+			eid: EndpointId.ETHEREUM_V2_MAINNET,
+			url:
+				process.env.RPC_URL_ETHEREUM || 'https://ethereum-rpc.publicnode.com',
+			accounts,
+			oftAdapter: {
+				tokenAddress: SOPH_ERC20_ETHEREUM,
+			},
+			safeConfig: {
+				safeUrl: 'https://safe-transaction-mainnet.safe.global',
+				safeAddress: '0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD',
+				...safeApiKeyConfig,
+			},
+		},
 		base: {
 			eid: EndpointId.BASE_V2_MAINNET,
 			url: process.env.RPC_URL_BASE || 'https://mainnet.base.org',
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://api.safe.global/tx-service/base/api',
+				safeUrl: 'https://safe-transaction-base.safe.global',
 				safeAddress: '0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD',
 				...safeApiKeyConfig,
 			},
@@ -79,7 +95,7 @@ const config: HardhatUserConfig = {
 			url: process.env.RPC_URL_POLYGON || 'https://polygon.drpc.org',
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://api.safe.global/tx-service/pol/api',
+				safeUrl: 'https://safe-transaction-polygon.safe.global',
 				safeAddress: '0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD',
 				...safeApiKeyConfig,
 			},
@@ -89,7 +105,7 @@ const config: HardhatUserConfig = {
 			url: process.env.RPC_URL_ARBITRUM || 'https://arb1.arbitrum.io/rpc',
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://api.safe.global/tx-service/arb1/api',
+				safeUrl: 'https://safe-transaction-arbitrum.safe.global',
 				safeAddress: '0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD',
 				...safeApiKeyConfig,
 			},
@@ -99,7 +115,7 @@ const config: HardhatUserConfig = {
 			url: process.env.RPC_URL_BSC || 'https://bsc.drpc.org',
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://api.safe.global/tx-service/bnb/api',
+				safeUrl: 'https://safe-transaction-bsc.safe.global',
 				safeAddress: '0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD',
 				...safeApiKeyConfig,
 			},
@@ -107,12 +123,9 @@ const config: HardhatUserConfig = {
 		sophon: {
 			eid: EndpointId.SOPHON_V2_MAINNET,
 			url: process.env.RPC_URL_SOPHON || 'https://rpc.sophon.xyz',
-			oftAdapter: {
-				tokenAddress: '0x70ff61C1436d19090321A312b1f4be89D62ac55C',
-			},
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://transaction.safe.sophon.xyz/api',
+				safeUrl: 'https://transaction.safe.sophon.xyz',
 				safeAddress: '0xa3b1f968b608642dD16d7Fd31bEc0B2c915908dB',
 				...safeApiKeyConfig,
 			},
@@ -122,7 +135,7 @@ const config: HardhatUserConfig = {
 			url: process.env.RPC_URL_BEAM || 'https://build.onbeam.com/rpc',
 			accounts,
 			safeConfig: {
-				safeUrl: 'https://app.safe.onbeam.com/txs/api',
+				safeUrl: 'https://app.safe.onbeam.com/txs',
 				safeAddress: '0xa72D557fB4E4A1a662fCE7cf506Ff593E5c90D3b',
 				...safeApiKeyConfig,
 			},

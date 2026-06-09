@@ -6,22 +6,25 @@
 # For each (source chain -> remote EID) pathway this script:
 #   1. Checks peers(remoteEid) on the source OApp and verifies it points at
 #      the expected OFT on that remote chain (MATCH / MISSING / MISMATCH).
-#   2. Resolves the ReceiveUln302 library from the source chain's LZ Endpoint.
-#   3. Reads the ULN config and flags pathways with fewer than
+#   2. Resolves the source send library and verifies executor configuration.
+#   3. Resolves the ReceiveUln302 library from the source chain's LZ Endpoint.
+#   4. Reads the ULN config and flags pathways with fewer than
 #      MIN_REQUIRED_DVNS required DVNs as EXPOSED.
 #
 # EXPOSED means a single compromised DVN could forge messages on that
 # pathway. We require >=2 required DVNs to consider a pathway safe.
 #
 # Usage:
-#   ./lzcheck.sh                # audit every source chain
-#   ./lzcheck.sh <chain>        # audit only one source chain (name or EID)
-#                               # valid: sophon | bsc | base | polygon | arbitrum | beam
-#                               #   or:  30334  30102 30184 30109    30110      30198
+#   ./lzcheck.sh                         # audit final Ethereum mesh
+#   MESH_MODE=current ./lzcheck.sh       # audit legacy Sophon mesh
+#   ./lzcheck.sh <chain>                 # audit only one source chain (name or EID)
+#                                        # valid: ethereum | sophon | bsc | base | polygon | arbitrum | beam
+#                                        #   or:  30101      30334   30102 30184 30109    30110      30198
 #
 # Env overrides (optional):
-#   RPC_URL_SOPHON, RPC_URL_BSC, RPC_URL_BASE,
+#   RPC_URL_ETHEREUM, RPC_URL_SOPHON, RPC_URL_BSC, RPC_URL_BASE,
 #   RPC_URL_POLYGON, RPC_URL_ARBITRUM, RPC_URL_BEAM
+#   MESH_MODE        final | current     (default final)
 #   RPC_MAX_ATTEMPTS  retry count per call     (default 4)
 #   RPC_BASE_DELAY    first retry delay in sec (default 1, doubles)
 #   RPC_PACE_DELAY    pause between calls      (default 0.15)
@@ -36,8 +39,7 @@ set -euo pipefail
 
 MIN_REQUIRED_DVNS=2
 
-# EID -> chain name (includes Ethereum for remote-side naming even though
-# we don't audit an OFT on Ethereum).
+# EID -> chain name.
 # Ethereum=30101 BSC=30102 Polygon=30109 Arbitrum=30110 Base=30184
 # Beam=30198 Sophon=30334
 chain_name() {
@@ -53,10 +55,9 @@ chain_name() {
   esac
 }
 
-# Source chains to audit. Each row: "Name|EID|OApp|RPC".
-# Ethereum is skipped (no OFT deployed there).
-CHAINS=(
-  "Sophon|30334|0x70ff61C1436d19090321A312b1f4be89D62ac55C|${RPC_URL_SOPHON:-https://rpc.sophon.xyz}"
+MESH_MODE="${MESH_MODE:-final}"
+
+SATELLITE_CHAINS=(
   "BSC|30102|0x31DbA3c96481FDe3CD81C2aaF51F2D8bf618C742|${RPC_URL_BSC:-https://bsc.drpc.org}"
   "Base|30184|0x31DbA3c96481FDe3CD81C2aaF51F2D8bf618C742|${RPC_URL_BASE:-https://mainnet.base.org}"
   "Polygon|30109|0xEb971Fd26783f32694dbB392dD7289de23109148|${RPC_URL_POLYGON:-https://polygon.drpc.org}"
@@ -64,18 +65,36 @@ CHAINS=(
   "Beam|30198|0x31DbA3c96481FDe3CD81C2aaF51F2D8bf618C742|${RPC_URL_BEAM:-https://build.onbeam.com/rpc}"
 )
 
-# Remote EIDs considered when auditing each source chain. The source's own
-# EID is skipped inside the loop.
-ALL_EIDS=(30102 30109 30110 30184 30198 30334)
+case "$MESH_MODE" in
+  final)
+    HUB_CHAIN="Ethereum|30101|0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1|${RPC_URL_ETHEREUM:-https://ethereum-rpc.publicnode.com}"
+    ALL_EIDS=(30101 30102 30109 30110 30184 30198)
+    ;;
+  current)
+    HUB_CHAIN="Sophon|30334|0x70ff61C1436d19090321A312b1f4be89D62ac55C|${RPC_URL_SOPHON:-https://rpc.sophon.xyz}"
+    ALL_EIDS=(30102 30109 30110 30184 30198 30334)
+    ;;
+  *)
+    echo "ERROR: unknown MESH_MODE '$MESH_MODE'. Valid: final | current." >&2
+    exit 2
+    ;;
+esac
+
+# Source chains to audit. Each row: "Name|EID|OApp|RPC".
+CHAINS=("$HUB_CHAIN" "${SATELLITE_CHAINS[@]}")
 
 # Function selectors (first 4 bytes of keccak256)
 # endpoint()                        => 0x5e280f11
 # peers(uint32)                     => 0xbb0b6a53
+# getSendLibrary(address,uint32)    => 0xb96a277f
 # getReceiveLibrary(address,uint32) => 0x402f8468
+# getExecutorConfig(address,uint32) => 0x188183f4
 # getUlnConfig(address,uint32)      => 0x43ea4fa9
 SEL_ENDPOINT="0x5e280f11"
 SEL_PEERS="0xbb0b6a53"
+SEL_GET_SEND_LIB="0xb96a277f"
 SEL_GET_RECV_LIB="0x402f8468"
+SEL_GET_EXEC_CFG="0x188183f4"
 SEL_GET_ULN_CFG="0x43ea4fa9"
 
 ZERO_WORD="0000000000000000000000000000000000000000000000000000000000000000"
@@ -102,7 +121,7 @@ if [ -n "$FILTER" ]; then
     fi
   done
   if [ ${#FILTERED[@]} -eq 0 ]; then
-    echo "ERROR: unknown chain '$FILTER'. Valid: Sophon BSC Base Polygon Arbitrum Beam (or their EIDs)." >&2
+    echo "ERROR: unknown chain '$FILTER'. Valid in MESH_MODE=$MESH_MODE: Ethereum/Sophon hub, BSC, Base, Polygon, Arbitrum, Beam (or their EIDs)." >&2
     exit 2
   fi
   CHAINS=("${FILTERED[@]}")
@@ -173,12 +192,20 @@ echo "OFT DVN configuration audit"
 echo "Audit rule: reqDVNs >= $MIN_REQUIRED_DVNS per pathway (else EXPOSED)"
 echo "Columns:    reqDVNs = on-chain requiredDVNCount"
 echo "            optThresh = on-chain optionalDVNThreshold"
-echo "Source chains: Sophon, BSC, Base, Polygon, Arbitrum, Beam  (Ethereum skipped)"
+echo "            executor = OK only when executor != address(0) and maxMessageSize > 0"
+if [ "$MESH_MODE" = "final" ]; then
+  echo "Mesh mode: final Ethereum hub"
+  echo "Source chains: Ethereum, BSC, Base, Polygon, Arbitrum, Beam"
+else
+  echo "Mesh mode: current Sophon hub"
+  echo "Source chains: Sophon, BSC, Base, Polygon, Arbitrum, Beam"
+fi
 
 TOTAL_EXPOSED=0
 TOTAL_OK=0
 TOTAL_PEER_ISSUES=0
 TOTAL_RPC_ERRORS=0
+TOTAL_EXECUTOR_ISSUES=0
 TOTAL_CHECKED=0
 
 for ROW in "${CHAINS[@]}"; do
@@ -201,8 +228,8 @@ for ROW in "${CHAINS[@]}"; do
   echo "  Endpoint: $ENDPOINT"
   echo ""
 
-  printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "chain" "EID" "reqDVNs" "optThresh" "peer" "recvLib" "verdict"
-  printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "----------" "------" "--------" "---------" "---------" "--------------------------------------------" "--------"
+  printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-8s  %-44s  %s\n" "chain" "EID" "reqDVNs" "optThresh" "peer" "executor" "recvLib" "verdict"
+  printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-8s  %-44s  %s\n" "----------" "------" "--------" "---------" "---------" "--------" "--------------------------------------------" "--------"
 
   for EID in "${ALL_EIDS[@]}"; do
     # Skip self
@@ -235,12 +262,39 @@ for ROW in "${CHAINS[@]}"; do
       TOTAL_PEER_ISSUES=$((TOTAL_PEER_ISSUES + 1))
     fi
 
-    # Step 1: resolve ReceiveUln302 for this remote EID
+    # Step 1: resolve the source send library and executor config.
+    CALLDATA="${SEL_GET_SEND_LIB}${OAPP_PAD}${EID_PAD}"
+    SEND_LIB_RAW=$(eth_call "$SRC_RPC" "$ENDPOINT" "$CALLDATA")
+    EXECUTOR_STATUS="ERR"
+    if [ "$SEND_LIB_RAW" = "error" ] || [ -z "$SEND_LIB_RAW" ] || [ "$SEND_LIB_RAW" = "0x" ]; then
+      TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
+    else
+      SEND_LIB=$(addr_from_word "$(word_at "$SEND_LIB_RAW" 0)")
+      CALLDATA="${SEL_GET_EXEC_CFG}${OAPP_PAD}${EID_PAD}"
+      EXEC_RAW=$(eth_call "$SRC_RPC" "$SEND_LIB" "$CALLDATA")
+      if [ "$EXEC_RAW" = "error" ] || [ -z "$EXEC_RAW" ] || [ "$EXEC_RAW" = "0x" ]; then
+        TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
+      else
+        MAX_MESSAGE_SIZE=$(printf "%d" "0x$(word_at "$EXEC_RAW" 0)")
+        EXECUTOR_ADDR=$(addr_from_word "$(word_at "$EXEC_RAW" 1)")
+        if [ "$MAX_MESSAGE_SIZE" -gt 0 ] && [ "$EXECUTOR_ADDR" != "0x0000000000000000000000000000000000000000" ]; then
+          EXECUTOR_STATUS="OK"
+        else
+          EXECUTOR_STATUS="MISSING"
+        fi
+      fi
+    fi
+
+    if [ "$EXECUTOR_STATUS" != "OK" ]; then
+      TOTAL_EXECUTOR_ISSUES=$((TOTAL_EXECUTOR_ISSUES + 1))
+    fi
+
+    # Step 2: resolve ReceiveUln302 for this remote EID
     CALLDATA="${SEL_GET_RECV_LIB}${OAPP_PAD}${EID_PAD}"
     RAW=$(eth_call "$SRC_RPC" "$ENDPOINT" "$CALLDATA")
 
     if [ "$RAW" = "error" ] || [ -z "$RAW" ] || [ "$RAW" = "0x" ]; then
-      printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "" "endpoint error"
+      printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-8s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "$EXECUTOR_STATUS" "" "endpoint error"
       TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
       TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
       continue
@@ -248,12 +302,12 @@ for ROW in "${CHAINS[@]}"; do
 
     RECV_LIB=$(addr_from_word "$(word_at "$RAW" 0)")
 
-    # Step 2: read the ULN config from the resolved library
+    # Step 3: read the ULN config from the resolved library
     CALLDATA="${SEL_GET_ULN_CFG}${OAPP_PAD}${EID_PAD}"
     RAW=$(eth_call "$SRC_RPC" "$RECV_LIB" "$CALLDATA")
 
     if [ "$RAW" = "error" ] || [ -z "$RAW" ] || [ "$RAW" = "0x" ]; then
-      printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "$RECV_LIB" "config error"
+      printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-8s  %-44s  %s\n" "$CHAIN" "$EID" "?" "?" "$PEER_STATUS" "$EXECUTOR_STATUS" "$RECV_LIB" "config error"
       TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
       TOTAL_RPC_ERRORS=$((TOTAL_RPC_ERRORS + 1))
       continue
@@ -276,7 +330,7 @@ for ROW in "${CHAINS[@]}"; do
     fi
     TOTAL_CHECKED=$((TOTAL_CHECKED + 1))
 
-    printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-44s  %s\n" "$CHAIN" "$EID" "$REQ" "$THR" "$PEER_STATUS" "$RECV_LIB" "$VERDICT"
+    printf "    %-10s  %-6s  %-8s  %-9s  %-9s  %-8s  %-44s  %s\n" "$CHAIN" "$EID" "$REQ" "$THR" "$PEER_STATUS" "$EXECUTOR_STATUS" "$RECV_LIB" "$VERDICT"
   done
 done
 
@@ -297,6 +351,12 @@ if [ "$TOTAL_PEER_ISSUES" -gt 0 ]; then
   EXIT_CODE=1
 else
   echo "  All peer routes OK (every source chain is wired to every other)."
+fi
+if [ "$TOTAL_EXECUTOR_ISSUES" -gt 0 ]; then
+  echo "  $TOTAL_EXECUTOR_ISSUES executor issue(s): MISSING = executor unset or maxMessageSize is zero, ERR = RPC failure."
+  EXIT_CODE=1
+else
+  echo "  All executor configs OK (executor set and maxMessageSize > 0)."
 fi
 if [ "$TOTAL_EXPOSED" -eq 0 ] && [ "$TOTAL_RPC_ERRORS" -eq 0 ]; then
   echo "  All $TOTAL_CHECKED checked pathways OK (>=$MIN_REQUIRED_DVNS required DVNs)."
