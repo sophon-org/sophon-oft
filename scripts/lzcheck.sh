@@ -187,6 +187,11 @@ addr_from_word() {
   echo "0x${w:24:40}"
 }
 
+redact_rpc() {
+  local rpc="$1"
+  echo "$rpc" | sed -E 's#(https?://[^/?]+).*#\1/<redacted>#'
+}
+
 echo ""
 echo "OFT DVN configuration audit"
 echo "Audit rule: reqDVNs >= $MIN_REQUIRED_DVNS per pathway (else EXPOSED)"
@@ -207,13 +212,14 @@ TOTAL_PEER_ISSUES=0
 TOTAL_RPC_ERRORS=0
 TOTAL_EXECUTOR_ISSUES=0
 TOTAL_CHECKED=0
+TOTAL_SKIPPED_SOURCES=0
 
 for ROW in "${CHAINS[@]}"; do
   IFS='|' read -r SRC_NAME SRC_EID SRC_OAPP SRC_RPC <<< "$ROW"
   OAPP_PAD=$(pad_addr "$SRC_OAPP")
 
   echo ""
-  echo "Source: $SRC_NAME (EID $SRC_EID)   RPC: $SRC_RPC"
+  echo "Source: $SRC_NAME (EID $SRC_EID)   RPC: $(redact_rpc "$SRC_RPC")"
   echo "  OApp: $SRC_OAPP"
 
   # Resolve the LZ Endpoint via the OApp's endpoint() getter — also validates
@@ -222,6 +228,7 @@ for ROW in "${CHAINS[@]}"; do
   if [ "$OAPP_ENDPOINT_RAW" = "error" ] || [ -z "$OAPP_ENDPOINT_RAW" ] || [ "$OAPP_ENDPOINT_RAW" = "0x" ]; then
     echo "  ERROR: $SRC_OAPP is not a valid OApp on $SRC_NAME (endpoint() failed)."
     echo "  Skipping this source chain."
+    TOTAL_SKIPPED_SOURCES=$((TOTAL_SKIPPED_SOURCES + 1))
     continue
   fi
   ENDPOINT=$(addr_from_word "$(word_at "$OAPP_ENDPOINT_RAW" 0)")
@@ -335,11 +342,19 @@ for ROW in "${CHAINS[@]}"; do
 done
 
 echo ""
-echo "  Pathways scanned: $TOTAL_CHECKED   (OK: $TOTAL_OK  EXPOSED: $TOTAL_EXPOSED  RPC errors: $TOTAL_RPC_ERRORS)"
+echo "  Pathways scanned: $TOTAL_CHECKED   (OK: $TOTAL_OK  EXPOSED: $TOTAL_EXPOSED  RPC errors: $TOTAL_RPC_ERRORS  skipped sources: $TOTAL_SKIPPED_SOURCES)"
 EXIT_CODE=0
+if [ "$TOTAL_CHECKED" -eq 0 ]; then
+  echo "  No pathways were checked — verification coverage is zero."
+  EXIT_CODE=1
+fi
 if [ "$TOTAL_EXPOSED" -gt 0 ]; then
   echo "  $TOTAL_EXPOSED pathway(s) EXPOSED — requiredDVNCount < $MIN_REQUIRED_DVNS."
   echo "  Reconfigure affected pathways with >=$MIN_REQUIRED_DVNS independent required DVNs."
+  EXIT_CODE=1
+fi
+if [ "$TOTAL_SKIPPED_SOURCES" -gt 0 ]; then
+  echo "  $TOTAL_SKIPPED_SOURCES source chain(s) skipped before pathway checks — re-run or set RPC_URL_* to authenticated endpoints."
   EXIT_CODE=1
 fi
 if [ "$TOTAL_RPC_ERRORS" -gt 0 ]; then
@@ -349,16 +364,16 @@ fi
 if [ "$TOTAL_PEER_ISSUES" -gt 0 ]; then
   echo "  $TOTAL_PEER_ISSUES peer issue(s): MISSING = no route set, MISMATCH = peer differs from expected OFT, ERR = RPC failure."
   EXIT_CODE=1
-else
+elif [ "$TOTAL_SKIPPED_SOURCES" -eq 0 ] && [ "$TOTAL_CHECKED" -gt 0 ]; then
   echo "  All peer routes OK (every source chain is wired to every other)."
 fi
 if [ "$TOTAL_EXECUTOR_ISSUES" -gt 0 ]; then
   echo "  $TOTAL_EXECUTOR_ISSUES executor issue(s): MISSING = executor unset or maxMessageSize is zero, ERR = RPC failure."
   EXIT_CODE=1
-else
+elif [ "$TOTAL_SKIPPED_SOURCES" -eq 0 ] && [ "$TOTAL_CHECKED" -gt 0 ]; then
   echo "  All executor configs OK (executor set and maxMessageSize > 0)."
 fi
-if [ "$TOTAL_EXPOSED" -eq 0 ] && [ "$TOTAL_RPC_ERRORS" -eq 0 ]; then
+if [ "$TOTAL_EXPOSED" -eq 0 ] && [ "$TOTAL_RPC_ERRORS" -eq 0 ] && [ "$TOTAL_SKIPPED_SOURCES" -eq 0 ] && [ "$TOTAL_CHECKED" -gt 0 ]; then
   echo "  All $TOTAL_CHECKED checked pathways OK (>=$MIN_REQUIRED_DVNS required DVNs)."
 fi
 echo ""

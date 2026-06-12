@@ -6,7 +6,7 @@ import {
 } from './layerzero.config.shared'
 
 /**
- * Phase 00: preflight snapshot of the current production mesh.
+ * Preflight snapshot of the current production mesh.
  *
  * Use for CLI verification before migration:
  *   npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts

@@ -1,0 +1,39 @@
+{
+	"version": "1.0",
+	"chainId": "50104",
+	"createdAt": 0,
+	"meta": {
+		"name": "SOPH migration 02-final sophon",
+		"description": "Batch 2: connect Ethereum <-> satellite final-route calls on this Safe-owned chain. Execute only after migration verification passes.",
+		"txBuilderVersion": "1.18.0",
+		"createdFromSafeAddress": "0xa3b1f968b608642dD16d7Fd31bEc0B2c915908dB",
+		"createdFromOwnerAddress": ""
+	},
+	"transactions": [
+		{
+			"to": "0x70ff61C1436d19090321A312b1f4be89D62ac55C",
+			"value": "0",
+			"data": "0x3400288b00000000000000000000000000000000000000000000000000000000000075950000000000000000000000000000000000000000000000000000000000000000",
+			"contractMethod": {
+				"inputs": [
+					{
+						"internalType": "uint32",
+						"name": "eid",
+						"type": "uint32"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "peer",
+						"type": "bytes32"
+					}
+				],
+				"name": "setPeer",
+				"payable": false
+			},
+			"contractInputsValues": {
+				"eid": "30101",
+				"peer": "0x0000000000000000000000000000000000000000000000000000000000000000"
+			}
+		}
+	]
+}

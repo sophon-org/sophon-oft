@@ -5,9 +5,7 @@ import {
 	type TwoWayConfig,
 } from '@layerzerolabs/metadata-tools'
 import type {
-	OAppEdgeConfig,
 	OAppEnforcedOption,
-	OmniEdgeHardhat,
 	OmniPointHardhat,
 } from '@layerzerolabs/toolbox-hardhat'
 
@@ -71,8 +69,6 @@ export const finalEthereumMeshContracts = [
 	ethereumContract,
 	...satelliteContracts,
 ]
-
-export const drainRouteContracts = [ethereumContract, legacySophonContract]
 
 export const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
 	{
@@ -204,17 +200,22 @@ export const currentSophonMeshPathways: TwoWayConfig[] = [
 	],
 ]
 
-export const ethereumDrainPathways: TwoWayConfig[] = [
+export const currentSophonSatellitePathways = currentSophonMeshPathways.slice(
+	0,
+	5,
+)
+
+export const sophonToEthereumMigrationPathways: TwoWayConfig[] = [
 	[
-		ethereumContract,
 		legacySophonContract,
+		ethereumContract,
 		dvnConfig,
-		[ETHEREUM_CONFIRMATIONS, undefined],
+		[SOPHON_CONFIRMATIONS, undefined],
 		[MAINNET_ENFORCED_OPTIONS, undefined],
 	],
 ]
 
-export const finalEthereumMeshPathways: TwoWayConfig[] = [
+export const finalEthereumSatellitePathways: TwoWayConfig[] = [
 	[
 		ethereumContract,
 		bscContract,
@@ -250,6 +251,10 @@ export const finalEthereumMeshPathways: TwoWayConfig[] = [
 		[ETHEREUM_CONFIRMATIONS, BEAM_CONFIRMATIONS],
 		enforcedOptionsPair,
 	],
+]
+
+export const finalEthereumMeshPathways: TwoWayConfig[] = [
+	...finalEthereumSatellitePathways,
 	...currentSophonMeshPathways.slice(5),
 ]
 
@@ -261,56 +266,4 @@ export async function generateConnectionsFromEids(
 	const allowed = new Set(fromEids)
 
 	return connections.filter((connection) => allowed.has(connection.from.eid))
-}
-
-export async function generateReceiveOnlyConnectionsFromEids(
-	pathways: TwoWayConfig[],
-	fromEids: number[],
-) {
-	const connections = (await generateConnectionsFromEids(
-		pathways,
-		fromEids,
-	)) as OmniEdgeHardhat<OAppEdgeConfig | undefined>[]
-
-	return connections.map((connection) => {
-		if (connection.config == null) {
-			return connection
-		}
-
-		const receiveOnlyConfig = { ...connection.config }
-		delete receiveOnlyConfig.enforcedOptions
-		delete receiveOnlyConfig.sendConfig
-		delete receiveOnlyConfig.sendLibrary
-
-		return {
-			...connection,
-			config: receiveOnlyConfig,
-		}
-	})
-}
-
-export async function generateSendOnlyConnectionsFromEids(
-	pathways: TwoWayConfig[],
-	fromEids: number[],
-) {
-	const connections = (await generateConnectionsFromEids(
-		pathways,
-		fromEids,
-	)) as OmniEdgeHardhat<OAppEdgeConfig | undefined>[]
-
-	return connections.map((connection) => {
-		if (connection.config == null) {
-			return connection
-		}
-
-		const sendOnlyConfig = { ...connection.config }
-		delete sendOnlyConfig.receiveConfig
-		delete sendOnlyConfig.receiveLibraryConfig
-		delete sendOnlyConfig.receiveLibraryTimeoutConfig
-
-		return {
-			...connection,
-			config: sendOnlyConfig,
-		}
-	})
 }

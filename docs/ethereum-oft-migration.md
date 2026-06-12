@@ -1,11 +1,19 @@
 # SOPH Ethereum OFTAdapter Migration
 
 This runbook migrates the SOPH LayerZero mesh from the legacy Sophon
-`NativeOFTAdapter` to the Ethereum `OFTAdapter` deployed at
-`0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1`.
+`NativeOFTAdapter` to the Ethereum `OFTAdapter` deployed at:
 
-Use the LayerZero Hardhat CLI wherever possible. Use fallback calldata only for
-peer removals if `lz:oapp:wire` does not generate zero-peer transactions.
+```text
+0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1
+```
+
+There is one prepared transaction set in the repository:
+
+```text
+safe/ethereum-migration/prepared-calldata/
+```
+
+Do not use older phase-based artifacts. They have been removed.
 
 ## Addresses
 
@@ -22,50 +30,192 @@ peer removals if `lz:oapp:wire` does not generate zero-peer transactions.
 
 ## Ownership
 
-The Ethereum adapter is currently owned by
-`0x50B238788747B26c408681283D148659F9da7Cf9`.
+The Ethereum adapter remains owned by this EOA until the migration is complete
+and verified:
 
-Keep the Ethereum adapter owned by this EOA until the migration is complete and
-the final mesh has been verified. During migration, run Ethereum adapter
-configuration without `--safe` from the owner EOA. Use Safe transactions only
-for the Safe-owned non-Ethereum OApps.
+```text
+0x50B238788747B26c408681283D148659F9da7Cf9
+```
 
-After final migration verification, transfer Ethereum adapter ownership and
-delegate to the Ethereum Safe:
+Ethereum adapter batch 1 transactions are not Safe transactions.
+Use:
+
+```text
+safe/ethereum-migration/prepared-calldata/03-ethereum-eoa-calldata.json
+```
+
+Use `batch1StartMigration.transactions` when the migration starts. After batch 1
+execution and verification, use `ownershipTransferToSafe.transactions` to set
+the Ethereum adapter delegate and owner to the Ethereum Safe:
 
 ```text
 0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD
 ```
 
-Post-migration transfer command:
+Batch 2 Ethereum transactions are Safe transactions submitted to that Ethereum
+Safe.
+
+## Transaction Set
+
+Regenerate the single prepared transaction set with:
 
 ```bash
-npx hardhat run scripts/transferOwnership.ts --network ethereum
+pnpm exec ts-node scripts/generateMigrationCalldata.ts
 ```
 
-## Before Starting
+The generator clears stale files under
+`safe/ethereum-migration/prepared-calldata/` before writing the current set.
 
-1. Coordinate with Stargate and any other UI operators to disable SOPH routes to
-   or from Sophon before peer changes begin.
-2. Confirm all Safe signers understand that Safe transactions can be prepared in
-   advance, but must be executed phase by phase only after each verification
-   gate passes.
-3. Confirm no user-facing UI points to the temporary Ethereum/Sophon drain route.
-4. Fund the executor/signing accounts with native gas on every involved chain.
-5. Use authenticated RPC URLs in `.env` where possible.
+Files:
 
-## Preflight Checks
+- `01-start-migration-batch.json`: batch 1 grouped by chain.
+- `02-final-reconnect-batch.json`: batch 2 grouped by chain.
+- `03-ethereum-eoa-calldata.json`: Ethereum EOA calldata for batch 1 and the
+  ownership/delegate handoff to the Ethereum Safe.
+- `safe-transaction-builder/01-start-*.json`: Safe Transaction Builder imports
+  for batch 1.
+- `safe-transaction-builder/02-final-*.json`: Safe Transaction Builder imports
+  for batch 2.
 
-LayerZero's production checklist treats every direction as a separate pathway.
-For each migration phase, verify:
+Verify the generated Safe transaction set with
+[`scripts/verifyMigrationSafeTxs.ts`](../scripts/verifyMigrationSafeTxs.ts):
 
-- peers are set or removed in both required directions
-- DVN configuration has at least two independent required DVNs
-- executor configuration has a nonzero executor and nonzero max message size
-- enforced options are present for message type `1`
-- owner and delegate are the expected EOA or Safe for that phase
+```bash
+pnpm exec ts-node scripts/verifyMigrationSafeTxs.ts
+```
 
-Verify the Ethereum adapter:
+The verifier checks that every Safe Transaction Builder file matches the
+aggregate calldata JSON, that the EOA calldata counts match, and that no
+satellite <-> satellite peer writes are present.
+
+## Safe Transaction Rundown
+
+There are 13 Safe transactions to sign and execute: one Safe transaction per
+Safe-owned chain in batch 1, and one Safe transaction per Safe-owned final
+chain in batch 2.
+
+Batch 1 has 6 Safe transactions with 15 inner calls:
+
+- Arbitrum, Base, Beam, BSC, and Polygon: 1 inner call each to clear that
+  satellite's Sophon peer.
+- Sophon: 10 inner calls to clear Sophon peers for all five satellites, set the
+  temporary Sophon -> Ethereum peer, and configure the Sophon -> Ethereum
+  route.
+
+Batch 2 has 7 Safe transactions with 50 inner calls:
+
+- Ethereum: 19 inner calls to clear the temporary Ethereum -> Sophon peer,
+  configure Ethereum -> satellite routes, and set Ethereum peers for all five
+  satellites.
+- Arbitrum, Base, Beam, BSC, and Polygon: 6 inner calls each to configure and
+  set that satellite's Ethereum peer.
+- Sophon: 1 inner call to clear the temporary Sophon -> Ethereum peer.
+
+Ethereum remains EOA-owned for batch 1 migration calldata. The EOA signs 4 calls
+in batch 1 and 2 ownership/delegate handoff calls from
+`safe/ethereum-migration/prepared-calldata/03-ethereum-eoa-calldata.json`.
+
+## Batch 1: Start Migration
+
+Queue these Safe Transaction Builder files ahead of time, but execute them only
+when the migration starts:
+
+```text
+safe/ethereum-migration/prepared-calldata/safe-transaction-builder/01-start-*.json
+```
+
+Batch 1 does this:
+
+- Sets only Sophon <-> satellite peers to `bytes32(0)` in both directions.
+- Leaves satellite <-> satellite peers untouched.
+- On Sophon, configures the temporary Sophon -> Ethereum route and sets the
+  Sophon peer for Ethereum EID `30101` to the new Ethereum adapter.
+- On Ethereum, uses the owner EOA calldata to configure the receive side for
+  Sophon and set the Ethereum peer for Sophon EID `30334` to the legacy Sophon
+  adapter.
+
+You can queue the Safe batches in advance. The last signer should sign and
+execute only when ready to start the migration.
+
+Ethereum EOA batch 1 is in:
+
+```text
+safe/ethereum-migration/prepared-calldata/03-ethereum-eoa-calldata.json
+```
+
+Use the `batch1StartMigration.transactions` array.
+
+## Batch 2: Final Reconnect
+
+Queue these Safe Transaction Builder files ahead of time, but execute them only
+after the migration is complete and verification passes:
+
+```text
+safe/ethereum-migration/prepared-calldata/safe-transaction-builder/02-final-*.json
+```
+
+Batch 2 does this:
+
+- Clears the temporary Sophon/Ethereum peer route.
+- Configures LayerZero libraries, ULN/DVN config, executor config, and enforced
+  options for Ethereum <-> satellite routes where needed.
+- Sets Ethereum <-> satellite peers in both directions.
+- Leaves satellite <-> satellite peers untouched.
+
+Ethereum batch 2 is in the Ethereum Safe Transaction Builder file:
+
+```text
+safe/ethereum-migration/prepared-calldata/safe-transaction-builder/02-final-ethereum-1.json
+```
+
+Execute it only after the EOA has executed
+`ownershipTransferToSafe.transactions`.
+
+The legacy Sophon `NativeOFTAdapter` is not part of the final graph.
+
+## LayerZero CLI Checks
+
+Use the LayerZero CLI for inspection and dry-run review. Zero-peer disconnect
+transactions are explicit calldata because `lz:oapp:wire` wires declared
+pathways and does not emit removals for omitted pathways.
+
+Preflight current mesh:
+
+```bash
+npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts
+npx hardhat lz:oapp:config:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts
+MESH_MODE=current ./scripts/lzcheck.sh
+```
+
+Review batch 1 Sophon <-> Ethereum wiring with the LayerZero CLI:
+
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.01-sophon-ethereum.ts --dry-run --ci
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.01-sophon-ethereum.ts --safe --dry-run --ci
+```
+
+Review batch 2 Ethereum <-> satellite wiring with the LayerZero CLI:
+
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.02-ethereum-satellites.ts --dry-run --ci
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.02-ethereum-satellites.ts --safe --dry-run --ci
+```
+
+Review the full post-migration graph with the LayerZero CLI:
+
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --dry-run --ci
+npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.ts
+npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
+./scripts/lzcheck.sh
+```
+
+Before signing any queued batch, preview the decoded Safe transactions and
+confirm the target chain, target contract, function, calldata, and peer EID.
+
+## Verification
+
+Before batch 1:
 
 ```bash
 cast call 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 "token()(address)" --rpc-url "$RPC_URL_ETHEREUM"
@@ -78,252 +228,32 @@ Expected:
 
 - `token()` = `0x6b7774cb12ed7573a7586e7d0e62a2a563ddd3f0`
 - `endpoint()` = `0x1a44076050125825900e736c501f859c50fe728c`
-- `owner()` = `0x50B238788747B26c408681283D148659F9da7Cf9` until final migration verification
-- `delegates(adapter)` = `0x50B238788747B26c408681283D148659F9da7Cf9` until final migration verification
+- `owner()` = `0x50B238788747B26c408681283D148659F9da7Cf9`
+- `delegates(adapter)` = `0x50B238788747B26c408681283D148659F9da7Cf9`
 
-Verify the current Sophon mesh:
+After batch 1:
 
-```bash
-npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts
-npx hardhat lz:oapp:config:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts
-MESH_MODE=current ./scripts/lzcheck.sh
-```
+- Sophon peers for BSC, Base, Polygon, Arbitrum, and Beam should be zero.
+- BSC, Base, Polygon, Arbitrum, and Beam peers for Sophon EID `30334` should be
+  zero.
+- Satellite <-> satellite peers should remain unchanged.
+- Sophon `peers(30101)` should point to the new Ethereum adapter.
+- Ethereum `peers(30334)` should point to the legacy Sophon adapter.
 
-For every phase config, treat each `from -> to` row as a directional pathway.
-Before executing any generated transaction batch, preview the decoded
-transactions and confirm the config includes explicit peers, send/receive
-libraries, DVN ULN config, executor config where a chain is allowed to send,
-and enforced receive options. Do not rely on LayerZero endpoint defaults.
-
-## Safe Transaction Preparation
-
-Prepare phase batches in advance from `safe/ethereum-migration/`, but execute
-only after each phase gate passes.
-
-For Safe-owned phases:
+After the ownership handoff, before batch 2:
 
 ```bash
-npx hardhat lz:oapp:wire --oapp-config <phase-config> --safe
+cast call 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 "owner()(address)" --rpc-url "$RPC_URL_ETHEREUM"
+cast call 0x1a44076050125825900e736c501f859c50fE728c "delegates(address)(address)" 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 --rpc-url "$RPC_URL_ETHEREUM"
 ```
 
-For Ethereum adapter phases before the final ownership transfer, use the split
-EOA config and run without `--safe` from the current owner EOA:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config <ethereum-eoa-phase-config>
-```
-
-When prompted, preview transactions and confirm the target networks, contracts,
-function names, and decoded arguments before submission.
-
-To obtain raw calldata for the EOA-owned Ethereum phases without submitting
-transactions, use:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.02-drain-ethereum-eoa.ts --dry-run --ci
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.04-final-ethereum-eoa.ts --dry-run --ci
-```
-
-The CLI output includes the target address and `Data` for each required
-`setPeer`, library, config, and enforced-options transaction. Regenerate this
-output immediately before execution so the raw bytes match the current on-chain
-state and package metadata.
-
-Peer removals are not represented as LayerZero config files:
-
-1. LayerZero's CLI wires declared pathways.
-2. Empty or omitted pathways do not generate `setPeer(eid, bytes32(0))`
-   transactions.
-3. Use the matching zero-peer calldata artifact for peer-removal phases.
-
-Fallback artifacts:
-
-- `safe/ethereum-migration/phase-01-disconnect-sophon-mesh/fallback-set-peer-zero.json`
-- `safe/ethereum-migration/phase-03-remove-drain-route/fallback-set-peer-zero.json`
-
-## Phase -01: Ethereum Adapter Deployment
-
-For this migration, the Ethereum `SophonTokenOFTAdapter` has already been
-deployed manually at:
+Expected owner and delegate:
 
 ```text
-0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1
+0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD
 ```
 
-Do not redeploy it for this migration. The repository deployment record is in
-`deployments/ethereum/SophonTokenOFTAdapter.json`, and
-`deploy/SophonTokenOFTAdapter.ts` now supports future Ethereum adapter
-deployments using `hardhat.config.ts` network `oftAdapter.tokenAddress`.
-
-If a future redeploy is intentionally required, the deployment command is:
-
-```bash
-npx hardhat deploy --tags SophonTokenOFTAdapter --network ethereum
-```
-
-After any deployment, repeat the Ethereum adapter preflight checks above before
-continuing.
-
-## Phase 00: Current State Snapshot
-
-No Safe transactions.
-
-Commands:
-
-```bash
-npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.00-current-sophon-mesh.ts
-MESH_MODE=current ./scripts/lzcheck.sh
-```
-
-Proceed only if the current state is understood and Stargate has disabled SOPH
-routes to or from Sophon.
-
-## Phase 01: Disconnect Old Sophon Routes
-
-LayerZero's CLI does not remove omitted peers. Use the explicit zero-peer
-transactions in:
-
-```text
-safe/ethereum-migration/phase-01-disconnect-sophon-mesh/fallback-set-peer-zero.json
-```
-
-This removes:
-
-- Sophon adapter peers for BSC, Base, Polygon, Arbitrum, and Beam.
-- BSC, Base, Polygon, Arbitrum, and Beam peers for Sophon EID `30334`.
-
-Verification:
-
-```bash
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30102 --rpc-url "$RPC_URL_SOPHON"
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30184 --rpc-url "$RPC_URL_SOPHON"
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30109 --rpc-url "$RPC_URL_SOPHON"
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30110 --rpc-url "$RPC_URL_SOPHON"
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30198 --rpc-url "$RPC_URL_SOPHON"
-```
-
-Each value must be `bytes32(0)`. Also verify each satellite peer for Sophon EID
-`30334` is zero before proceeding.
-
-## Phase 02: Temporary Ethereum/Sophon Drain Route
-
-Configure the Ethereum EOA-owned side first:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.02-drain-ethereum-eoa.ts
-```
-
-Configure the Sophon Safe-owned receive side second:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.02-drain-sophon-safe.ts --safe
-```
-
-The Phase 02 configs are intentionally asymmetric:
-
-- `layerzero.config.migration.02-drain-ethereum-eoa.ts` configures the Ethereum
-  adapter peer and send-side security settings for Ethereum -> Sophon.
-- `layerzero.config.migration.02-drain-sophon-safe.ts` configures the Sophon
-  adapter peer and receive-side security settings for Ethereum -> Sophon.
-- The Sophon-side temporary config must not configure Sophon send-side settings
-  back to Ethereum.
-
-Verification:
-
-```bash
-npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.02-drain-ethereum-eoa.ts
-npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.migration.02-drain-sophon-safe.ts
-npx hardhat lz:oapp:config:get --oapp-config layerzero.config.migration.02-drain-ethereum-eoa.ts
-npx hardhat lz:oapp:config:get --oapp-config layerzero.config.migration.02-drain-sophon-safe.ts
-```
-
-The temporary route must be used only for the exact-balance drain from Ethereum
-to Sophon. Do not expose it in Stargate or any other UI.
-
-## Phase 02A: Exact-Balance Drain Bridge
-
-Immediately before bridging, read the old Sophon adapter native SOPH balance:
-
-```bash
-cast balance 0x70ff61C1436d19090321A312b1f4be89D62ac55C --rpc-url "$RPC_URL_SOPHON"
-```
-
-Let this value be `DRAIN_AMOUNT_WEI`.
-
-Prepare the Ethereum source wallet or Safe with exactly enough SOPH ERC20 and
-ETH for gas and LayerZero fees. If the source is a Safe, prepare the approve and
-send transactions only after `DRAIN_AMOUNT_WEI` is final.
-
-Bridge parameters:
-
-- source adapter: `0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1`
-- destination EID: `30334`
-- amountLD: `DRAIN_AMOUNT_WEI`
-- minAmountLD: `DRAIN_AMOUNT_WEI`
-- destination recipient: Sophon treasury/wallet that should receive the drained
-  native SOPH
-- extra options: at least the enforced receive gas from the config
-- composeMsg: `0x`
-- oftCmd: `0x`
-
-After sending, wait for LayerZero delivery and verify:
-
-```bash
-cast balance 0x70ff61C1436d19090321A312b1f4be89D62ac55C --rpc-url "$RPC_URL_SOPHON"
-cast call 0x6b7774cb12ed7573a7586e7d0e62a2a563ddd3f0 "balanceOf(address)(uint256)" 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 --rpc-url "$RPC_URL_ETHEREUM"
-```
-
-Expected:
-
-- legacy Sophon adapter balance decreased by exactly `DRAIN_AMOUNT_WEI`
-- Ethereum adapter ERC20 balance increased by exactly `DRAIN_AMOUNT_WEI`
-- Sophon recipient received exactly `DRAIN_AMOUNT_WEI`
-
-Do not proceed if any amount differs.
-
-## Phase 03: Remove Temporary Drain Route
-
-LayerZero's CLI wires pathways declared in the config. It does not generate
-`setPeer(eid, bytes32(0))` removals for pathways omitted from a config. Use the
-explicit zero-peer transactions in:
-
-```text
-safe/ethereum-migration/phase-03-remove-drain-route/fallback-set-peer-zero.json
-```
-
-Execute the Ethereum row from the owner EOA and the Sophon row through the
-Sophon Safe.
-
-These two transactions are small and deterministic:
-
-- Ethereum adapter: `setPeer(30334, bytes32(0))`
-- Sophon adapter: `setPeer(30101, bytes32(0))`
-
-Verification:
-
-```bash
-cast call 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 "peers(uint32)(bytes32)" 30334 --rpc-url "$RPC_URL_ETHEREUM"
-cast call 0x70ff61C1436d19090321A312b1f4be89D62ac55C "peers(uint32)(bytes32)" 30101 --rpc-url "$RPC_URL_SOPHON"
-```
-
-The Ethereum peer for Sophon EID `30334` and the Sophon peer for Ethereum EID
-`30101` should be zero or missing.
-
-## Phase 04: Final Ethereum Mesh
-
-Configure the Ethereum EOA-owned side first:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.04-final-ethereum-eoa.ts
-```
-
-Configure the Safe-owned satellite sides second:
-
-```bash
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.migration.04-final-satellite-safes.ts --safe
-```
-
-Verification:
+After batch 2:
 
 ```bash
 npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.ts
@@ -340,47 +270,13 @@ Expected final source chains:
 - Arbitrum
 - Beam
 
-The legacy Sophon `NativeOFTAdapter` must not be in the final graph.
+## Refresh Rules
 
-## Phase 05: Transfer Ethereum Adapter To Safe
+Regenerate the transaction set if any of these change before execution:
 
-After Phase 04 verification passes, transfer the Ethereum adapter owner and
-delegate to the Ethereum Safe:
-
-```bash
-npx hardhat run scripts/transferOwnership.ts --network ethereum
-```
-
-Verify:
-
-```bash
-cast call 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 "owner()(address)" --rpc-url "$RPC_URL_ETHEREUM"
-cast call 0x1a44076050125825900e736c501f859c50fE728c "delegates(address)(address)" 0xb09F17b1c52DCC6870070047e1D84e3Aab1c4DD1 --rpc-url "$RPC_URL_ETHEREUM"
-```
-
-Expected owner and delegate:
-
-```text
-0x3b181838Ae9DB831C17237FAbD7c10801Dd49fcD
-```
-
-## UI Updates
-
-After final verification:
-
-1. Notify Stargate and any other UIs that SOPH routes should use the Ethereum
-   adapter address.
-2. Remove old Sophon adapter routing from UI configuration.
-3. Confirm test sends through non-Sophon routes before reopening broad user
-   traffic.
-
-## Abort Points
-
-- Before Phase 01: no on-chain migration changes have been made.
-- After Phase 01 and before Phase 02: old Sophon routes are blocked; restore by
-  re-running `layerzero.config.migration.00-current-sophon-mesh.ts` if needed.
-- After Phase 02 and before drain send: remove the temporary route if aborting.
-- After drain send: do not reconnect final routes until balances match exactly.
-- After Phase 04: rollback requires a new reviewed plan because collateral has
-  moved to the Ethereum adapter.
-- After Phase 05: Ethereum adapter administration is Safe-controlled.
+- adapter or OFT contract address
+- owner or delegate
+- Safe address
+- LayerZero config contents
+- already-submitted Safe transaction nonce/order
+- LayerZero package versions
