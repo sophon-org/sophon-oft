@@ -31,9 +31,9 @@ writes.
 There are 13 Safe transactions total: one transaction per Safe-owned chain in
 batch 1 and one transaction per Safe-owned final chain in batch 2.
 
-- Batch 1: 6 Safe transactions, 15 inner calls.
+- Batch 1: 6 Safe transactions, 16 inner calls.
 - Batch 2: 7 Safe transactions, 50 inner calls.
-- Ethereum EOA calldata: 4 calls in batch 1 and 2 ownership/delegate handoff
+- Ethereum EOA calldata: 6 calls in batch 1 and 2 ownership/delegate handoff
   calls.
 
 ## Owner Safes
@@ -55,7 +55,7 @@ owner transactions and the ownership/delegate handoff.
 
 Batch 1 starts the migration. It disconnects Sophon <-> satellite peers in both
 directions, leaves satellite <-> satellite peers untouched, and configures the
-temporary Sophon <-> Ethereum route.
+temporary Sophon <-> Ethereum route in both directions.
 
 After batch 1 verification, execute the Ethereum EOA
 `ownershipTransferToSafe.transactions` calls to set the Ethereum adapter

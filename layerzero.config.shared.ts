@@ -210,8 +210,8 @@ export const sophonToEthereumMigrationPathways: TwoWayConfig[] = [
 		legacySophonContract,
 		ethereumContract,
 		dvnConfig,
-		[SOPHON_CONFIRMATIONS, undefined],
-		[MAINNET_ENFORCED_OPTIONS, undefined],
+		[SOPHON_CONFIRMATIONS, ETHEREUM_CONFIRMATIONS],
+		[MAINNET_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
 	],
 ]
 

@@ -94,12 +94,12 @@ There are 13 Safe transactions to sign and execute: one Safe transaction per
 Safe-owned chain in batch 1, and one Safe transaction per Safe-owned final
 chain in batch 2.
 
-Batch 1 has 6 Safe transactions with 15 inner calls:
+Batch 1 has 6 Safe transactions with 16 inner calls:
 
 - Arbitrum, Base, Beam, BSC, and Polygon: 1 inner call each to clear that
   satellite's Sophon peer.
-- Sophon: 10 inner calls to clear Sophon peers for all five satellites, set the
-  temporary Sophon -> Ethereum peer, and configure the Sophon -> Ethereum
+- Sophon: 11 inner calls to clear Sophon peers for all five satellites, set the
+  temporary Sophon -> Ethereum peer, and configure the Sophon <-> Ethereum
   route.
 
 Batch 2 has 7 Safe transactions with 50 inner calls:
@@ -111,7 +111,7 @@ Batch 2 has 7 Safe transactions with 50 inner calls:
   set that satellite's Ethereum peer.
 - Sophon: 1 inner call to clear the temporary Sophon -> Ethereum peer.
 
-Ethereum remains EOA-owned for batch 1 migration calldata. The EOA signs 4 calls
+Ethereum remains EOA-owned for batch 1 migration calldata. The EOA signs 6 calls
 in batch 1 and 2 ownership/delegate handoff calls from
 `safe/ethereum-migration/prepared-calldata/03-ethereum-eoa-calldata.json`.
 
